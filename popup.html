@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>LaTeX Equation Fixer</title>
+  <style>
+    body {
+      width: 450px;
+      padding: 20px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      background: #f5f5f5;
+    }
+
+    h1 {
+      font-size: 18px;
+      margin: 0 0 15px 0;
+      color: #333;
+    }
+
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      resize: vertical;
+      box-sizing: border-box;
+      margin-bottom: 10px;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: #2196F3;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    button {
+      flex: 1;
+      padding: 10px;
+      background: #2196F3;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #1976D2;
+    }
+
+    button.secondary {
+      background: #757575;
+    }
+
+    button.secondary:hover {
+      background: #616161;
+    }
+
+    .info {
+      background: #E3F2FD;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      font-size: 12px;
+      color: #1976D2;
+      border-left: 3px solid #2196F3;
+    }
+
+    .examples {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #eee;
+    }
+
+    .examples h3 {
+      font-size: 13px;
+      margin: 0 0 8px 0;
+      color: #666;
+    }
+
+    .examples code {
+      background: #f5f5f5;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .status {
+      margin-top: 10px;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      text-align: center;
+      display: none;
+    }
+
+    .status.success {
+      background: #C8E6C9;
+      color: #2E7D32;
+    }
+
+    .status.info {
+      background: #FFF9C4;
+      color: #F57F17;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 LaTeX Equation Fixer</h1>
+
+    <div class="info">
+      📋 Paste your text with LaTeX equations below, or just paste directly into Google Docs/Word - it will auto-convert!
+    </div>
+
+    <textarea id="inputText" placeholder="Paste your text with LaTeX here...&#10;&#10;Example: The formula is $E = mc^2$ and $\alpha + \beta \ge \gamma$"></textarea>
+
+    <textarea id="outputText" placeholder="Converted text will appear here..." readonly></textarea>
+
+    <div class="button-group">
+      <button id="convertBtn">Convert LaTeX</button>
+      <button id="copyBtn" class="secondary">Copy Result</button>
+      <button id="clearBtn" class="secondary">Clear</button>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <div class="examples">
+      <h3>Supported LaTeX Commands:</h3>
+      <code>\alpha, \beta, \gamma → α, β, γ</code>
+      <code>\ge, \le, \ne → ≥, ≤, ≠</code>
+      <code>\times, \div → ×, ÷</code>
+      <code>\sum, \int, \infty → ∑, ∫, ∞</code>
+      <code>$x^2$ → x²</code>
+      <code>$H_2O$ → H₂O</code>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

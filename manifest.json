@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "LaTeX Equation Fixer",
+  "version": "1.0.0",
+  "description": "Automatically converts pasted LaTeX equations to proper formatting in Google Docs and Microsoft Word Online",
+  "permissions": [
+    "activeTab",
+    "clipboardRead"
+  ],
+  "host_permissions": [
+    "https://docs.google.com/*",
+    "https://www.office.com/*",
+    "https://*.officeapps.live.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://docs.google.com/*",
+        "https://www.office.com/*",
+        "https://*.officeapps.live.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["katex.min.css"],
+      "matches": ["https://docs.google.com/*", "https://www.office.com/*", "https://*.officeapps.live.com/*"]
+    }
+  ]
+}
