@@ -387,7 +387,9 @@ function convertLatexToUnicode(text) {
       cleaned = processMathFunctions(cleaned);
       cleaned = processScripts(cleaned);
 
-      for (const [latex, unicode] of Object.entries(latexToUnicode)) {
+      // Use merged dictionary (Enhancement #20)
+      const mergedDict = getMergedLatexDictionary();
+      for (const [latex, unicode] of Object.entries(mergedDict)) {
         const regex = new RegExp(latex.replace(/\\/g, '\\\\'), 'g');
         cleaned = cleaned.replace(regex, unicode);
       }
@@ -407,7 +409,9 @@ function convertLatexToUnicode(text) {
       cleaned = processMathFunctions(cleaned);
       cleaned = processScripts(cleaned);
 
-      for (const [latex, unicode] of Object.entries(latexToUnicode)) {
+      // Use merged dictionary (Enhancement #20)
+      const mergedDict = getMergedLatexDictionary();
+      for (const [latex, unicode] of Object.entries(mergedDict)) {
         const regex = new RegExp(latex.replace(/\\/g, '\\\\'), 'g');
         cleaned = cleaned.replace(regex, unicode);
       }
@@ -422,6 +426,115 @@ function convertLatexToUnicode(text) {
 }
 
 // =======================
+// ENHANCEMENT #20: Custom LaTeX Mappings
+// =======================
+
+let customMappings = {};
+
+// Load custom mappings from storage
+async function loadCustomMappings() {
+  try {
+    const result = await chrome.storage.sync.get('settings');
+    if (result.settings && result.settings.customMappings) {
+      customMappings = result.settings.customMappings;
+    }
+  } catch (error) {
+    console.error('[Popup] Error loading custom mappings:', error);
+  }
+}
+
+// Get merged LaTeX dictionary (built-in + custom)
+function getMergedLatexDictionary() {
+  return { ...latexToUnicode, ...customMappings };
+}
+
+// =======================
+// ENHANCEMENT #22: Validation functions
+// =======================
+
+function validateLatex(text) {
+  const errors = [];
+
+  // Check for unmatched braces
+  let braceDepth = 0;
+  let lastOpenBrace = -1;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{' && (i === 0 || text[i-1] !== '\\')) {
+      braceDepth++;
+      if (braceDepth === 1) lastOpenBrace = i;
+    } else if (text[i] === '}' && (i === 0 || text[i-1] !== '\\')) {
+      braceDepth--;
+      if (braceDepth < 0) {
+        errors.push({
+          type: 'unmatched_braces',
+          message: `Unmatched closing brace } at position ${i}`,
+          suggestion: 'Check that every } has a matching {'
+        });
+        braceDepth = 0;
+      }
+    }
+  }
+
+  if (braceDepth > 0) {
+    errors.push({
+      type: 'unmatched_braces',
+      message: `Unmatched opening brace { at position ${lastOpenBrace}`,
+      suggestion: 'Check that every { has a matching }'
+    });
+  }
+
+  // Check for unmatched dollar signs
+  const dollarCount = (text.match(/\$/g) || []).length;
+  if (dollarCount % 2 !== 0) {
+    errors.push({
+      type: 'unmatched_delimiters',
+      message: 'Unmatched $ delimiter',
+      suggestion: 'LaTeX equations need matching $ or $$ pairs'
+    });
+  }
+
+  // Find unknown commands (commands not in our dictionary)
+  const commandPattern = /\\([a-zA-Z]+)/g;
+  const unknownCommands = [];
+  let match;
+
+  // Get merged dictionary (Enhancement #20)
+  const mergedDict = getMergedLatexDictionary();
+
+  while ((match = commandPattern.exec(text)) !== null) {
+    const command = '\\' + match[1];
+
+    // Check if command exists in our dictionaries (including custom)
+    const knownCommand =
+      mergedDict[command] ||
+      ['frac', 'sqrt', 'text', 'mathrm', 'mathbf', 'mathit', 'hat', 'bar', 'vec', 'dot', 'ddot',
+       'tilde', 'left', 'right', 'big', 'Big', 'bigg', 'Bigg', 'begin', 'end',
+       'sin', 'cos', 'tan', 'log', 'ln', 'lim', 'max', 'min'].includes(match[1]);
+
+    if (!knownCommand && !unknownCommands.includes(command)) {
+      unknownCommands.push(command);
+    }
+  }
+
+  if (unknownCommands.length > 0) {
+    errors.push({
+      type: 'unknown_commands',
+      message: `Unknown LaTeX commands: ${unknownCommands.join(', ')}`,
+      suggestion: 'Check spelling or these commands may not be supported'
+    });
+  }
+
+  return errors;
+}
+
+function showValidationErrors(errors) {
+  if (!errors || errors.length === 0) return '';
+
+  const errorMessages = errors.map(e => `• ${e.message}\n  💡 ${e.suggestion}`).join('\n\n');
+  return `⚠️ LaTeX Validation Issues:\n\n${errorMessages}\n\n`;
+}
+
+// =======================
 // UI event handlers
 // =======================
 
@@ -430,6 +543,15 @@ document.getElementById('convertBtn').addEventListener('click', () => {
 
   if (!inputText.trim()) {
     showStatus('⚠️ Please enter some text to convert', 'info');
+    return;
+  }
+
+  // ENHANCEMENT #22: Validate LaTeX before conversion
+  const validationErrors = validateLatex(inputText);
+  if (validationErrors.length > 0) {
+    const errorMessage = showValidationErrors(validationErrors);
+    document.getElementById('outputText').value = errorMessage + '\nOriginal text:\n' + inputText;
+    showStatus('⚠️ Validation failed - see output for details', 'info');
     return;
   }
 
@@ -464,7 +586,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   document.getElementById('status').style.display = 'none';
 });
 
-// Auto-convert as user types (with debounce)
+// Auto-convert as user types (with debounce) - ENHANCEMENT #18: Live Preview
 let typingTimer;
 document.getElementById('inputText').addEventListener('input', () => {
   clearTimeout(typingTimer);
@@ -473,9 +595,56 @@ document.getElementById('inputText').addEventListener('input', () => {
     if (inputText.trim()) {
       const converted = convertLatexToUnicode(inputText);
       document.getElementById('outputText').value = converted;
+
+      // Show conversion statistics
+      showConversionStats(inputText, converted);
+    } else {
+      document.getElementById('conversionStats').style.display = 'none';
     }
-  }, 500);
+  }, 300); // Faster debounce for live feel
 });
+
+// Show conversion statistics (Enhancement #18 + #22)
+function showConversionStats(input, output) {
+  if (input === output) {
+    document.getElementById('conversionStats').style.display = 'none';
+    return;
+  }
+
+  // ENHANCEMENT #22: Check for validation warnings
+  const validationErrors = validateLatex(input);
+
+  // Count equations
+  const inlineMatches = input.match(/\$[^$]+\$/g) || [];
+  const displayMatches = input.match(/\$\$[^$]+\$\$/g) || [];
+  const totalEquations = inlineMatches.length + displayMatches.length;
+
+  // Count symbols converted (including custom mappings - Enhancement #20)
+  let symbolsConverted = 0;
+  const mergedDict = getMergedLatexDictionary();
+  for (const [latex,] of Object.entries(mergedDict)) {
+    const count = (input.match(new RegExp(latex.replace(/\\/g, '\\\\'), 'g')) || []).length;
+    symbolsConverted += count;
+  }
+
+  // Show stats
+  const statsEl = document.getElementById('statsContent');
+  let statsHTML = `
+    ✓ ${totalEquations} equation${totalEquations !== 1 ? 's' : ''} detected<br>
+    ✓ ${symbolsConverted} symbol${symbolsConverted !== 1 ? 's' : ''} converted
+  `;
+
+  // Add validation warnings if any
+  if (validationErrors.length > 0) {
+    statsHTML += '<br><br><strong style="color: #f57f17;">⚠️ Validation Warnings:</strong><br>';
+    validationErrors.forEach(err => {
+      statsHTML += `<span style="color: #f57f17;">• ${err.message}</span><br>`;
+    });
+  }
+
+  statsEl.innerHTML = statsHTML;
+  document.getElementById('conversionStats').style.display = 'block';
+}
 
 function showStatus(message, type) {
   const status = document.getElementById('status');
@@ -488,4 +657,7 @@ function showStatus(message, type) {
   }, 3000);
 }
 
-console.log('[LaTeX Fixer Popup] All 15 issues fixed - Ready!');
+// Initialize: Load custom mappings
+loadCustomMappings().then(() => {
+  console.log('[LaTeX Fixer Popup] Ready! Custom mappings loaded:', Object.keys(customMappings).length);
+});
