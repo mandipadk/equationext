@@ -1,11 +1,7 @@
-// LaTeX Equation Fixer - Popup Script
-// Version 2.0 - All 15 critical issues fixed
-// Shared conversion logic with content.js
+// Node.js test script for LaTeX Fixer
+// Run with: node test.js
 
-// =======================
-// Complete Unicode mappings (Issues #5, #7)
-// =======================
-
+// Copy all the conversion logic from popup.js
 const latexToUnicode = {
   // Greek letters (lowercase)
   '\\alpha': 'α', '\\beta': 'β', '\\gamma': 'γ', '\\delta': 'δ',
@@ -14,33 +10,27 @@ const latexToUnicode = {
   '\\nu': 'ν', '\\xi': 'ξ', '\\pi': 'π', '\\rho': 'ρ',
   '\\sigma': 'σ', '\\tau': 'τ', '\\upsilon': 'υ', '\\phi': 'φ',
   '\\chi': 'χ', '\\psi': 'ψ', '\\omega': 'ω',
-
   // Greek letters (uppercase)
   '\\Gamma': 'Γ', '\\Delta': 'Δ', '\\Theta': 'Θ', '\\Lambda': 'Λ',
   '\\Xi': 'Ξ', '\\Pi': 'Π', '\\Sigma': 'Σ', '\\Phi': 'Φ',
   '\\Psi': 'Ψ', '\\Omega': 'Ω',
-
   // Variant Greek letters
   '\\varepsilon': 'ε', '\\varphi': 'φ', '\\vartheta': 'ϑ',
   '\\varrho': 'ϱ', '\\varsigma': 'ς', '\\varpi': 'ϖ',
-
   // Mathematical operators
   '\\times': '×', '\\div': '÷', '\\pm': '±', '\\mp': '∓', '\\cdot': '·',
   '\\ast': '∗', '\\star': '⋆', '\\circ': '∘', '\\bullet': '•',
   '\\oplus': '⊕', '\\ominus': '⊖', '\\otimes': '⊗', '\\oslash': '⊘',
-
   // Relational operators
   '\\le': '≤', '\\leq': '≤', '\\ge': '≥', '\\geq': '≥',
   '\\ne': '≠', '\\neq': '≠', '\\approx': '≈', '\\equiv': '≡',
   '\\sim': '∼', '\\simeq': '≃', '\\cong': '≅', '\\propto': '∝',
   '\\ll': '≪', '\\gg': '≫', '\\prec': '≺', '\\succ': '≻',
   '\\preceq': '⪯', '\\succeq': '⪰', '\\perp': '⊥', '\\parallel': '∥',
-
   // Set theory
   '\\in': '∈', '\\notin': '∉', '\\ni': '∋', '\\subset': '⊂', '\\supset': '⊃',
   '\\subseteq': '⊆', '\\supseteq': '⊇', '\\cup': '∪', '\\cap': '∩',
   '\\emptyset': '∅', '\\varnothing': '∅', '\\setminus': '∖',
-
   // Logic
   '\\forall': '∀', '\\exists': '∃', '\\nexists': '∄',
   '\\neg': '¬', '\\lnot': '¬',
@@ -48,7 +38,6 @@ const latexToUnicode = {
   '\\lor': '∨', '\\vee': '∨',
   '\\implies': '⇒', '\\iff': '⇔',
   '\\top': '⊤', '\\bot': '⊥',
-
   // Arrows
   '\\rightarrow': '→', '\\to': '→',
   '\\leftarrow': '←', '\\gets': '←',
@@ -62,7 +51,6 @@ const latexToUnicode = {
   '\\Longrightarrow': '⟹', '\\Longleftarrow': '⟸',
   '\\longleftrightarrow': '⟷', '\\Longleftrightarrow': '⟺',
   '\\nearrow': '↗', '\\searrow': '↘', '\\swarrow': '↙', '\\nwarrow': '↖',
-
   // Miscellaneous symbols
   '\\infty': '∞', '\\partial': '∂', '\\nabla': '∇',
   '\\sum': '∑', '\\prod': '∏', '\\coprod': '∐',
@@ -76,7 +64,6 @@ const latexToUnicode = {
   '\\diamond': '⋄', '\\Diamond': '◊', '\\Box': '□', '\\square': '□',
   '\\triangle': '△', '\\triangledown': '▽',
   '\\clubsuit': '♣', '\\diamondsuit': '♦', '\\heartsuit': '♥', '\\spadesuit': '♠',
-
   // Bracket scaling and special brackets
   '\\langle': '⟨', '\\rangle': '⟩',
   '\\lfloor': '⌊', '\\rfloor': '⌋',
@@ -87,7 +74,6 @@ const latexToUnicode = {
   '\\vert': '|', '\\|': '‖', '\\Vert': '‖',
 };
 
-// Complete superscript mappings
 const superscriptMap = {
   '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
   '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
@@ -104,7 +90,6 @@ const superscriptMap = {
   '*': '﹡', '.': '·', '/': 'ᐟ',
 };
 
-// Complete subscript mappings
 const subscriptMap = {
   '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
   '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
@@ -115,7 +100,6 @@ const subscriptMap = {
   '+': '₊', '-': '₋', '=': '₌', '(': '₍', ')': '₎',
 };
 
-// Accent combining characters
 const accentMap = {
   'hat': '\u0302', 'bar': '\u0304', 'tilde': '\u0303',
   'vec': '\u20D7', 'dot': '\u0307', 'ddot': '\u0308',
@@ -123,21 +107,15 @@ const accentMap = {
   'breve': '\u0306', 'widetilde': '\u0303', 'widehat': '\u0302',
 };
 
-// =======================
-// ISSUE #12: Error handling
-// =======================
 function safeExecute(fn, fallback) {
   try {
     return fn();
   } catch (error) {
-    console.error('[LaTeX Fixer Popup]', error);
+    console.error('[LaTeX Fixer]', error);
     return fallback;
   }
 }
 
-// =======================
-// ISSUE #2: Proper brace matching
-// =======================
 function findMatchingBrace(text, startIndex) {
   let depth = 1;  // We're already inside one level of braces
   for (let i = startIndex; i < text.length; i++) {
@@ -164,23 +142,14 @@ function extractBraceContent(text, startIndex) {
   };
 }
 
-// =======================
-// ISSUE #5: Convert to superscript
-// =======================
 function toSuperscript(text) {
   return text.split('').map(char => superscriptMap[char] || char).join('');
 }
 
-// =======================
-// ISSUE #5: Convert to subscript
-// =======================
 function toSubscript(text) {
   return text.split('').map(char => subscriptMap[char] || char).join('');
 }
 
-// =======================
-// ISSUE #8: Add accent
-// =======================
 function addAccent(base, accentType) {
   const accent = accentMap[accentType];
   if (!accent) return base;
@@ -191,9 +160,6 @@ function addAccent(base, accentType) {
   return base + accent;
 }
 
-// =======================
-// ISSUE #2, #6: Handle \frac with nested braces
-// =======================
 function processFrac(text) {
   let result = text;
   let changed = true;
@@ -218,20 +184,15 @@ function processFrac(text) {
   return result;
 }
 
-// =======================
-// ISSUE #6: Handle \sqrt
-// =======================
 function processSqrt(text) {
   let result = text;
 
-  // Handle \sqrt[n]{x}
   result = result.replace(/\\sqrt\[(\d+)\]\{([^}]+)\}/g, (match, n, content) => {
     if (n === '3') return `∛(${content})`;
     if (n === '4') return `∜(${content})`;
     return `${n}√(${content})`;
   });
 
-  // Handle \sqrt{x}
   let changed = true;
   while (changed) {
     changed = false;
@@ -250,9 +211,6 @@ function processSqrt(text) {
   return result;
 }
 
-// =======================
-// ISSUE #8: Handle accents
-// =======================
 function processAccents(text) {
   let result = text;
 
@@ -266,9 +224,6 @@ function processAccents(text) {
   return result;
 }
 
-// =======================
-// ISSUE #6: Handle math functions
-// =======================
 function processMathFunctions(text) {
   const functions = [
     'sin', 'cos', 'tan', 'cot', 'sec', 'csc',
@@ -291,13 +246,9 @@ function processMathFunctions(text) {
   return result;
 }
 
-// =======================
-// ISSUE #1: Fixed superscript/subscript processing
-// =======================
 function processScripts(text) {
   let result = text;
 
-  // Handle superscripts with braces (FIXED)
   let changed = true;
   while (changed) {
     changed = false;
@@ -313,7 +264,6 @@ function processScripts(text) {
     }
   }
 
-  // Handle subscripts with braces (FIXED)
   changed = true;
   while (changed) {
     changed = false;
@@ -329,26 +279,16 @@ function processScripts(text) {
     }
   }
 
-  // Handle single-character superscripts
   result = result.replace(/\^([a-zA-Z0-9+\-=()])/g, (m, char) => toSuperscript(char));
-
-  // Handle single-character subscripts
   result = result.replace(/_([a-zA-Z0-9+\-=()])/g, (m, char) => toSubscript(char));
 
   return result;
 }
 
-// =======================
-// Helper: Escape regex special characters
-// =======================
 function escapeRegex(str) {
-  // Escape special regex characters: \ ^ $ . * + ? ( ) [ ] { } |
   return str.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
 }
 
-// =======================
-// ISSUE #10: Remove LaTeX commands
-// =======================
 function removeLatexCommands(text) {
   let result = text;
 
@@ -358,23 +298,23 @@ function removeLatexCommands(text) {
 
   result = result.replace(/\\(left|right|big|Big|bigg|Bigg)\s*/g, '');
 
-  // Remove \text{} but keep content (handle nested braces properly)
   let changed = true;
   while (changed) {
     changed = false;
     const textIndex = result.indexOf('\\text{');
     if (textIndex !== -1) {
+      // Start searching for the opening brace right after '\text'
       const content = extractBraceContent(result, textIndex + '\\text'.length);
       if (content) {
         result = result.substring(0, textIndex) + content.content + result.substring(content.end);
         changed = true;
       } else {
-        break;  // Avoid infinite loop
+        // If we can't extract content, break to avoid infinite loop
+        break;
       }
     }
   }
 
-  // Remove \mathrm{}, \mathbf{}, etc but keep content (handle nested braces properly)
   const mathCommands = ['mathrm', 'mathbf', 'mathit', 'mathsf', 'mathtt', 'mathcal', 'mathbb', 'mathfrak'];
   for (const cmd of mathCommands) {
     changed = true;
@@ -394,18 +334,19 @@ function removeLatexCommands(text) {
   result = result.replace(/\\(,|;|:|\s|quad|qquad)/g, ' ');
 
   // DON'T remove backslashes yet - we need them for symbol replacement!
-  // This will be done in finalCleanup() after symbol replacement
+  // result = result.replace(/\\([^a-zA-Z])/g, '$1');
+
+  // DON'T restore underscores yet - do it at the very end
+  // result = result.replace(new RegExp(UNDERSCORE_PLACEHOLDER, 'g'), '_');
 
   return result;
 }
 
-// =======================
-// Final cleanup after all conversions
-// =======================
+// New function to clean up remaining LaTeX artifacts AFTER symbol replacement
 function finalCleanup(text) {
   let result = text;
 
-  // Remove remaining single backslashes before non-command characters
+  // Remove remaining backslashes before non-alphabetic characters
   result = result.replace(/\\([^a-zA-Z])/g, '$1');
 
   // Restore escaped underscores
@@ -415,9 +356,6 @@ function finalCleanup(text) {
   return result;
 }
 
-// =======================
-// ISSUE #4: Normalize delimiters
-// =======================
 function normalizeDelimiters(text) {
   let result = text;
 
@@ -429,30 +367,22 @@ function normalizeDelimiters(text) {
   return result;
 }
 
-// =======================
-// Main conversion function with ALL fixes
-// =======================
 function convertLatexToUnicode(text) {
   return safeExecute(() => {
     let converted = text;
 
-    // Normalize alternative delimiters first
     converted = normalizeDelimiters(converted);
 
-    // Process display math ($$...$$) first
     converted = converted.replace(/\$\$([^$]+)\$\$/g, (match, equation) => {
       let cleaned = equation.trim();
 
-      // CRITICAL: Remove \text{} and other commands FIRST
       cleaned = removeLatexCommands(cleaned);
-
       cleaned = processFrac(cleaned);
       cleaned = processSqrt(cleaned);
       cleaned = processAccents(cleaned);
       cleaned = processMathFunctions(cleaned);
 
-      // CRITICAL: Replace LaTeX symbols BEFORE processing scripts
-      // This ensures symbols like \| are replaced before backslashes are removed
+      // Replace LaTeX symbols BEFORE processing scripts and removing backslashes
       for (const [latex, unicode] of Object.entries(latexToUnicode)) {
         const regex = new RegExp(escapeRegex(latex), 'g');
         cleaned = cleaned.replace(regex, unicode);
@@ -464,20 +394,16 @@ function convertLatexToUnicode(text) {
       return '\n' + cleaned + '\n';
     });
 
-    // Process inline math ($...$)
     converted = converted.replace(/\$([^$]+)\$/g, (match, equation) => {
       let cleaned = equation.trim();
 
-      // CRITICAL: Remove \text{} and other commands FIRST
       cleaned = removeLatexCommands(cleaned);
-
       cleaned = processFrac(cleaned);
       cleaned = processSqrt(cleaned);
       cleaned = processAccents(cleaned);
       cleaned = processMathFunctions(cleaned);
 
-      // CRITICAL: Replace LaTeX symbols BEFORE processing scripts
-      // This ensures symbols like \| are replaced before backslashes are removed
+      // Replace LaTeX symbols BEFORE processing scripts and removing backslashes
       for (const [latex, unicode] of Object.entries(latexToUnicode)) {
         const regex = new RegExp(escapeRegex(latex), 'g');
         cleaned = cleaned.replace(regex, unicode);
@@ -493,71 +419,102 @@ function convertLatexToUnicode(text) {
   }, text);
 }
 
-// =======================
-// UI event handlers
-// =======================
+// Test cases
+const tests = [
+  {
+    name: "Simple \\text{} with subscript",
+    input: "$I_{\\text{total}}$",
+    expected: "Iₜₒₜₐₗ"
+  },
+  {
+    name: "\\text{} with underscore",
+    input: "$$I_{\\text{theo\\_disk}} = \\frac{1}{2}MR^2$$",
+    expected: "\nIₜₕₑₒ_dᵢₛₖ = (1)/(2)MR²\n"
+  },
+  {
+    name: "Pipe character - should NOT insert ‖ everywhere",
+    input: "$a + b$",
+    expected: "a + b"
+  },
+  {
+    name: "Actual pipe symbol",
+    input: "$\\|x\\|$",
+    expected: "‖x‖"
+  },
+  {
+    name: "Complex expression with \\sum",
+    input: "$\\sum \\tau = I\\alpha$",
+    expected: "∑ τ = Iα"
+  },
+  {
+    name: "User's FULL text - Moment of Inertia",
+    input: `Moment of Inertia, or rotational inertia ($I$), is the rotational equivalent of mass. While mass describes an object's resistance to linear acceleration, the moment of inertia describes an object's resistance to angular acceleration ($\\alpha$). It is a fundamental property of a rotating body that depends on both its total mass ($M$) and how that mass is distributed relative to the axis of rotation ($R$). For a uniform solid disk, the theoretical moment of inertia is given by:
 
-document.getElementById('convertBtn').addEventListener('click', () => {
-  const inputText = document.getElementById('inputText').value;
+$$I_{\\text{theo\\_disk}} = \\frac{1}{2}MR^2$$
 
-  if (!inputText.trim()) {
-    showStatus('⚠️ Please enter some text to convert', 'info');
-    return;
+This experiment determines the moment of inertia experimentally by applying Newton's Second Law for Rotation, $\\sum \\tau = I\\alpha$. This principle states that a net external torque ($\\tau$) applied to an object will cause an angular acceleration ($\\alpha$) that is inversely proportional to the object's moment of inertia ($I$). By rearranging this to $I = \\frac{\\tau}{\\alpha}$, we can find the experimental moment of inertia by measuring the applied torque and the resulting acceleration.
+
+The angular acceleration ($\\alpha$) is measured directly by finding the slope of the angular velocity vs. time graph from the Rotary Motion Sensor. The torque ($\\tau$) is supplied by a hanging mass ($m$) attached to a string wrapped around the sensor's pulley of radius ($r$). This torque is caused by the string's tension ($T$), giving $\\tau = Tr$. The tension is found using Newton's Second Law on the hanging mass: $\\sum F = mg - T = ma$, which gives $T = m(g - a)$. Substituting this into the torque equation, we get $\\tau = m(g - a)r$.
+
+By substituting the expressions for $\\tau$ and $\\alpha$ (using the no-slip condition $a = \\alpha r$) into the rotational dynamics equation, we can solve for the total moment of inertia:
+
+$$I_{\\text{total}} = \\frac{\\tau}{\\alpha} = \\frac{m(g - a)r}{(a/r)} = \\frac{m r^2 (g - a)}{a}$$
+
+This formula gives the total inertia of the rotating system. To find the moment of inertia of the disk alone, the inertia of the sensor ($I_{\\text{sensor}}$) must be measured in a separate trial and subtracted: $I_{\\text{disk\\_only}} = I_{\\text{total}} - I_{\\text{sensor}}$.`,
+    expected: null  // We'll just check it doesn't have the broken output
   }
+];
 
-  const converted = convertLatexToUnicode(inputText);
-  document.getElementById('outputText').value = converted;
+console.log('Running LaTeX Fixer Tests...\n');
 
-  if (converted !== inputText) {
-    showStatus('✅ Conversion complete!', 'success');
-  } else {
-    showStatus('⚠️ No LaTeX patterns found', 'info');
-  }
-});
+let passed = 0;
+let failed = 0;
 
-document.getElementById('copyBtn').addEventListener('click', () => {
-  const outputText = document.getElementById('outputText').value;
+tests.forEach((test, index) => {
+  const output = convertLatexToUnicode(test.input);
 
-  if (!outputText.trim()) {
-    showStatus('⚠️ Nothing to copy yet - convert some text first', 'info');
-    return;
-  }
+  let success;
+  if (test.expected === null) {
+    // For the user's full text, just check it doesn't have the broken patterns
+    const noPipeEverywhere = !output.includes('‖I‖‖');
+    const hasCorrectTheoDisk = output.includes('Iₜₕₑₒ_dᵢₛₖ');
+    const hasCorrectTotal = output.includes('Iₜₒₜₐₗ');
+    const hasCorrectSensor = output.includes('Iₛₑₙₛₒᵣ');
+    const hasCorrectDiskOnly = output.includes('Idᵢₛₖ_ₒₙₗy');
+    success = noPipeEverywhere && hasCorrectTheoDisk && hasCorrectTotal && hasCorrectSensor && hasCorrectDiskOnly;
 
-  navigator.clipboard.writeText(outputText).then(() => {
-    showStatus('📋 Copied to clipboard!', 'success');
-  }).catch(err => {
-    showStatus('❌ Failed to copy: ' + err.message, 'info');
-  });
-});
-
-document.getElementById('clearBtn').addEventListener('click', () => {
-  document.getElementById('inputText').value = '';
-  document.getElementById('outputText').value = '';
-  document.getElementById('status').style.display = 'none';
-});
-
-// Auto-convert as user types (with debounce)
-let typingTimer;
-document.getElementById('inputText').addEventListener('input', () => {
-  clearTimeout(typingTimer);
-  typingTimer = setTimeout(() => {
-    const inputText = document.getElementById('inputText').value;
-    if (inputText.trim()) {
-      const converted = convertLatexToUnicode(inputText);
-      document.getElementById('outputText').value = converted;
+    if (!success) {
+      console.log(`❌ Test ${index + 1}: ${test.name}`);
+      console.log(`   Pipe everywhere: ${!noPipeEverywhere ? 'FAILED' : 'OK'}`);
+      console.log(`   I_theo_disk: ${hasCorrectTheoDisk ? 'OK' : 'FAILED'}`);
+      console.log(`   I_total: ${hasCorrectTotal ? 'OK' : 'FAILED'}`);
+      console.log(`   I_sensor: ${hasCorrectSensor ? 'OK' : 'FAILED'}`);
+      console.log(`   I_disk_only: ${hasCorrectDiskOnly ? 'OK' : 'FAILED'}`);
+      console.log('');
+      failed++;
+    } else {
+      console.log(`✅ Test ${index + 1}: ${test.name}`);
+      passed++;
     }
-  }, 500);
+  } else {
+    success = output === test.expected;
+
+    if (success) {
+      passed++;
+      console.log(`✅ Test ${index + 1}: ${test.name}`);
+    } else {
+      failed++;
+      console.log(`❌ Test ${index + 1}: ${test.name}`);
+      console.log(`   Input:    ${JSON.stringify(test.input.substring(0, 100))}...`);
+      console.log(`   Expected: ${JSON.stringify(test.expected)}`);
+      console.log(`   Got:      ${JSON.stringify(output)}`);
+      console.log('');
+    }
+  }
 });
 
-function showStatus(message, type) {
-  const status = document.getElementById('status');
-  status.textContent = message;
-  status.className = 'status ' + type;
-  status.style.display = 'block';
+console.log(`\n${'='.repeat(50)}`);
+console.log(`Results: ${passed}/${tests.length} tests passed`);
+console.log(`${'='.repeat(50)}`);
 
-  setTimeout(() => {
-    status.style.display = 'none';
-  }, 3000);
-}
-
-console.log('[LaTeX Fixer Popup] All 15 issues fixed - Ready!');
+process.exit(failed > 0 ? 1 : 0);

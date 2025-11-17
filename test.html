@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LaTeX Fixer Test Suite</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-case {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-case h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .input, .expected, .output {
+            margin: 10px 0;
+        }
+        .label {
+            font-weight: bold;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .content {
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #2196F3;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .pass {
+            background: #4CAF50;
+            color: white;
+        }
+        .fail {
+            background: #f44336;
+            color: white;
+        }
+        #summary {
+            background: #2196F3;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .run-tests {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        .run-tests:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>LaTeX Fixer Test Suite</h1>
+    <button class="run-tests" onclick="runAllTests()">Run All Tests</button>
+
+    <div id="summary">
+        <h2>Test Results</h2>
+        <p id="summary-text">Click "Run All Tests" to start</p>
+    </div>
+
+    <div id="test-container"></div>
+
+    <script src="popup.js"></script>
+    <script>
+        // Test cases
+        const testCases = [
+            {
+                name: "User's Critical Bug - Moment of Inertia Text",
+                input: `Moment of Inertia, or rotational inertia ($I$), is the rotational equivalent of mass. While mass describes an object's resistance to linear acceleration, the moment of inertia describes an object's resistance to angular acceleration ($\\alpha$). It is a fundamental property of a rotating body that depends on both its total mass ($M$) and how that mass is distributed relative to the axis of rotation ($R$). For a uniform solid disk, the theoretical moment of inertia is given by:
+
+$$I_{\\text{theo\\_disk}} = \\frac{1}{2}MR^2$$
+
+This experiment determines the moment of inertia experimentally by applying Newton's Second Law for Rotation, $\\sum \\tau = I\\alpha$. This principle states that a net external torque ($\\tau$) applied to an object will cause an angular acceleration ($\\alpha$) that is inversely proportional to the object's moment of inertia ($I$). By rearranging this to $I = \\frac{\\tau}{\\alpha}$, we can find the experimental moment of inertia by measuring the applied torque and the resulting acceleration.
+
+The angular acceleration ($\\alpha$) is measured directly by finding the slope of the angular velocity vs. time graph from the Rotary Motion Sensor. The torque ($\\tau$) is supplied by a hanging mass ($m$) attached to a string wrapped around the sensor's pulley of radius ($r$). This torque is caused by the string's tension ($T$), giving $\\tau = Tr$. The tension is found using Newton's Second Law on the hanging mass: $\\sum F = mg - T = ma$, which gives $T = m(g - a)$. Substituting this into the torque equation, we get $\\tau = m(g - a)r$.
+
+By substituting the expressions for $\\tau$ and $\\alpha$ (using the no-slip condition $a = \\alpha r$) into the rotational dynamics equation, we can solve for the total moment of inertia:
+
+$$I_{\\text{total}} = \\frac{\\tau}{\\alpha} = \\frac{m(g - a)r}{(a/r)} = \\frac{m r^2 (g - a)}{a}$$
+
+This formula gives the total inertia of the rotating system. To find the moment of inertia of the disk alone, the inertia of the sensor ($I_{\\text{sensor}}$) must be measured in a separate trial and subtracted: $I_{\\text{disk\\_only}} = I_{\\text{total}} - I_{\\text{sensor}}$.`,
+                expected: `Moment of Inertia, or rotational inertia (I), is the rotational equivalent of mass. While mass describes an object's resistance to linear acceleration, the moment of inertia describes an object's resistance to angular acceleration (α). It is a fundamental property of a rotating body that depends on both its total mass (M) and how that mass is distributed relative to the axis of rotation (R). For a uniform solid disk, the theoretical moment of inertia is given by:
+
+Iₜₕₑₒ_dᵢₛₖ = (1)/(2)MR²
+
+This experiment determines the moment of inertia experimentally by applying Newton's Second Law for Rotation, ∑ τ = Iα. This principle states that a net external torque (τ) applied to an object will cause an angular acceleration (α) that is inversely proportional to the object's moment of inertia (I). By rearranging this to I = (τ)/(α), we can find the experimental moment of inertia by measuring the applied torque and the resulting acceleration.
+
+The angular acceleration (α) is measured directly by finding the slope of the angular velocity vs. time graph from the Rotary Motion Sensor. The torque (τ) is supplied by a hanging mass (m) attached to a string wrapped around the sensor's pulley of radius (r). This torque is caused by the string's tension (T), giving τ = Tr. The tension is found using Newton's Second Law on the hanging mass: ∑ F = mg - T = ma, which gives T = m(g - a). Substituting this into the torque equation, we get τ = m(g - a)r.
+
+By substituting the expressions for τ and α (using the no-slip condition a = α r) into the rotational dynamics equation, we can solve for the total moment of inertia:
+
+Iₜₒₜₐₗ = (τ)/(α) = (m(g - a)r)/((a/r)) = (m r² (g - a))/(a)
+
+This formula gives the total inertia of the rotating system. To find the moment of inertia of the disk alone, the inertia of the sensor (Iₛₑₙₛₒᵣ) must be measured in a separate trial and subtracted: Idᵢₛₖ_ₒₙₗy = Iₜₒₜₐₗ - Iₛₑₙₛₒᵣ.`
+            },
+            {
+                name: "Simple inline math with \\text{}",
+                input: "$I_{\\text{total}}$",
+                expected: "Iₜₒₜₐₗ"
+            },
+            {
+                name: "Display math with \\text{} and subscript",
+                input: "$$I_{\\text{theo\\_disk}} = \\frac{1}{2}MR^2$$",
+                expected: "\nIₜₕₑₒ_dᵢₛₖ = (1)/(2)MR²\n"
+            },
+            {
+                name: "Multiple \\text{} commands",
+                input: "$\\text{mass}_1 + \\text{mass}_2$",
+                expected: "mass₁ + mass₂"
+            },
+            {
+                name: "\\text{} with special characters",
+                input: "$F_{\\text{net}}$",
+                expected: "Fₙₑₜ"
+            },
+            {
+                name: "Complex nested fractions",
+                input: "$\\frac{a}{\\frac{b}{c}}$",
+                expected: "(a)/((b)/(c))"
+            },
+            {
+                name: "Greek letters",
+                input: "$\\alpha + \\beta = \\gamma$",
+                expected: "α + β = γ"
+            },
+            {
+                name: "Superscripts and subscripts",
+                input: "$x^2 + y_1$",
+                expected: "x² + y₁"
+            },
+            {
+                name: "Square root",
+                input: "$\\sqrt{x^2 + y^2}$",
+                expected: "√(x² + y²)"
+            },
+            {
+                name: "Sum and product symbols",
+                input: "$\\sum_{i=1}^n x_i$",
+                expected: "∑ᵢ₌₁ⁿ xᵢ"
+            },
+            {
+                name: "Special symbols with \\|",
+                input: "$\\|x\\|$",
+                expected: "‖x‖"
+            },
+            {
+                name: "Pipe character test - should not insert ‖ everywhere",
+                input: "$a + b$",
+                expected: "a + b"
+            },
+            {
+                name: "\\mathrm{} command",
+                input: "$\\mathrm{kg}$",
+                expected: "kg"
+            },
+            {
+                name: "Integral",
+                input: "$\\int_0^\\infty f(x) dx$",
+                expected: "∫₀^∞ f(x) dx"
+            },
+            {
+                name: "Vector notation",
+                input: "$\\vec{F} = m\\vec{a}$",
+                expected: "F⃗ = ma⃗"
+            }
+        ];
+
+        function normalizeWhitespace(str) {
+            // Normalize whitespace for comparison
+            return str.trim().replace(/\s+/g, ' ');
+        }
+
+        function runTest(testCase, index) {
+            const output = convertLatexToUnicode(testCase.input);
+            const passed = normalizeWhitespace(output) === normalizeWhitespace(testCase.expected);
+
+            return {
+                ...testCase,
+                output,
+                passed,
+                index
+            };
+        }
+
+        function displayTestResult(result) {
+            const container = document.getElementById('test-container');
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test-case';
+
+            testDiv.innerHTML = `
+                <h3>Test ${result.index + 1}: ${result.name}</h3>
+                <div class="input">
+                    <div class="label">Input:</div>
+                    <div class="content">${escapeHtml(result.input)}</div>
+                </div>
+                <div class="expected">
+                    <div class="label">Expected:</div>
+                    <div class="content">${escapeHtml(result.expected)}</div>
+                </div>
+                <div class="output">
+                    <div class="label">Actual Output:</div>
+                    <div class="content">${escapeHtml(result.output)}</div>
+                </div>
+                <div class="status ${result.passed ? 'pass' : 'fail'}">
+                    ${result.passed ? '✅ PASS' : '❌ FAIL'}
+                </div>
+            `;
+
+            container.appendChild(testDiv);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function runAllTests() {
+            const container = document.getElementById('test-container');
+            container.innerHTML = '';
+
+            const results = testCases.map((testCase, index) => runTest(testCase, index));
+            results.forEach(displayTestResult);
+
+            const passed = results.filter(r => r.passed).length;
+            const total = results.length;
+            const percentage = ((passed / total) * 100).toFixed(1);
+
+            document.getElementById('summary-text').innerHTML = `
+                <strong>Results: ${passed}/${total} tests passed (${percentage}%)</strong><br>
+                ${passed === total ? '🎉 All tests passed!' : '⚠️ Some tests failed - see details below'}
+            `;
+        }
+
+        // Auto-run tests on load
+        window.addEventListener('load', runAllTests);
+    </script>
+</body>
+</html>
