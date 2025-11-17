@@ -1,5 +1,206 @@
 // LaTeX Equation Fixer - Content Script
-// Version 2.0 - All 15 critical issues fixed
+// Version 2.1 - All 15 critical issues fixed + 10 enhancements
+
+// =======================
+// ENHANCEMENT #25: Memory Management & Optimization
+// =======================
+
+// Track event listeners for cleanup
+const trackedListeners = new Map();
+let isInitialized = false;
+
+// Detect if we're on an actual editor page (not just any Google Docs page)
+function isEditorPage() {
+  const hostname = window.location.hostname;
+  const pathname = window.location.pathname;
+
+  // Google Docs: Check for /document/d/ pattern
+  if (hostname.includes('docs.google.com')) {
+    return pathname.includes('/document/d/') || pathname.includes('/spreadsheets/d/');
+  }
+
+  // Microsoft Word: Check for actual document editor
+  if (hostname.includes('office.com') || hostname.includes('officeapps.live.com')) {
+    return pathname.includes('/edit') || document.querySelector('[role="main"]') !== null;
+  }
+
+  return false;
+}
+
+// Add tracked event listener for cleanup
+function addTrackedListener(element, event, handler, options) {
+  element.addEventListener(event, handler, options);
+
+  const key = `${event}_${Date.now()}_${Math.random()}`;
+  trackedListeners.set(key, { element, event, handler, options });
+
+  return key; // Return key for manual removal if needed
+}
+
+// Cleanup all resources
+function cleanup() {
+  // Remove all tracked event listeners
+  for (const [key, { element, event, handler, options }] of trackedListeners) {
+    try {
+      element.removeEventListener(event, handler, options);
+    } catch (error) {
+      // Element might not exist anymore
+    }
+  }
+  trackedListeners.clear();
+
+  // Clear caches (Enhancement #23)
+  if (typeof conversionCache !== 'undefined') {
+    conversionCache.clear();
+  }
+  if (typeof regexCache !== 'undefined') {
+    regexCache.clear();
+  }
+
+  // Remove floating button if it exists
+  const floatingBtn = document.getElementById('latex-converter-btn');
+  if (floatingBtn) {
+    floatingBtn.remove();
+  }
+
+  // Remove undo button if it exists
+  const undoBtn = document.getElementById('latex-undo-btn');
+  if (undoBtn) {
+    undoBtn.remove();
+  }
+
+  isInitialized = false;
+
+  if (SETTINGS.enableDebugLogging) {
+    console.log('[LaTeX Fixer] Cleaned up all resources');
+  }
+}
+
+// =======================
+// ENHANCEMENT #16: Settings Management
+// =======================
+
+let SETTINGS = {
+  enableAutoConvert: true,
+  showFloatingButton: true,
+  showNotifications: true,
+  notificationDuration: 3,
+  enableDebugLogging: false,
+  siteGoogleDocs: true,
+  siteMicrosoftWord: true,
+  convertInlineMath: true,
+  convertDisplayMath: true,
+  convertAlternativeDelimiters: true,
+  smartDetection: true,
+  customMappings: {},
+  statistics: {}
+};
+
+// Load settings from storage
+async function loadSettings() {
+  try {
+    const result = await chrome.storage.sync.get('settings');
+    if (result.settings) {
+      SETTINGS = { ...SETTINGS, ...result.settings };
+      if (SETTINGS.enableDebugLogging) {
+        console.log('[LaTeX Fixer] Settings loaded:', SETTINGS);
+      }
+    }
+  } catch (error) {
+    console.error('[LaTeX Fixer] Error loading settings:', error);
+  }
+}
+
+// Listen for messages from background script
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'SETTINGS_UPDATED') {
+    SETTINGS = { ...SETTINGS, ...request.settings };
+    if (SETTINGS.enableDebugLogging) {
+      console.log('[LaTeX Fixer] Settings updated:', SETTINGS);
+    }
+    sendResponse({ success: true });
+  }
+
+  if (request.type === 'CONVERT_SELECTION' || request.type === 'CONVERT_SELECTION_SHORTCUT') {
+    handleManualConversion();
+    sendResponse({ success: true });
+  }
+
+  return true;
+});
+
+// Handle manual conversion (keyboard shortcut or context menu)
+async function handleManualConversion() {
+  const selection = window.getSelection();
+  const selectedText = selection.toString();
+
+  if (!selectedText) {
+    if (SETTINGS.showNotifications) {
+      showNotification('⚠️ Please select text to convert', 'warning');
+    }
+    return;
+  }
+
+  if (!hasLatexContent(selectedText)) {
+    if (SETTINGS.showNotifications) {
+      showNotification('⚠️ No LaTeX found in selection', 'warning');
+    }
+    return;
+  }
+
+  // ENHANCEMENT #22: Validate LaTeX before conversion
+  const validationErrors = validateLatex(selectedText);
+  if (validationErrors.length > 0) {
+    showValidationErrors(validationErrors);
+    trackConversion(selectedText, selectedText, false);
+    return;
+  }
+
+  const converted = convertLatexToUnicode(selectedText);
+
+  if (converted !== selectedText) {
+    const success = await insertText(converted);
+    if (success) {
+      if (SETTINGS.showNotifications) {
+        showNotification('✅ Selected text converted!', 'success');
+      }
+      // Track statistics
+      trackConversion(selectedText, converted, true);
+    } else {
+      if (SETTINGS.showNotifications) {
+        showNotification('⚠️ Conversion succeeded but insertion failed', 'error');
+      }
+    }
+  } else {
+    if (SETTINGS.showNotifications) {
+      showNotification('⚠️ No LaTeX patterns found', 'warning');
+    }
+  }
+}
+
+// Track conversion statistics (enhancement #21)
+function trackConversion(input, output, success) {
+  try {
+    // Extract symbols used (includes custom mappings)
+    const symbols = [];
+    const mergedDict = getMergedLatexDictionary();
+    for (const [latex, unicode] of Object.entries(mergedDict)) {
+      if (input.includes(latex)) {
+        symbols.push(latex);
+      }
+    }
+
+    chrome.runtime.sendMessage({
+      type: 'UPDATE_STATISTICS',
+      success,
+      input: input.substring(0, 500), // Limit length
+      output: output.substring(0, 500),
+      symbols
+    }).catch(() => {});
+  } catch (error) {
+    console.error('[LaTeX Fixer] Error tracking statistics:', error);
+  }
+}
 
 // =======================
 // ISSUE #5, #7: Complete Unicode mappings
@@ -133,6 +334,23 @@ const accentMap = {
   'widetilde': '\u0303', // ̃
   'widehat': '\u0302',   // ̂
 };
+
+// =======================
+// ENHANCEMENT #20: Custom LaTeX Mappings
+// =======================
+
+// Get merged LaTeX dictionary (built-in + custom mappings)
+function getMergedLatexDictionary() {
+  // Start with built-in mappings
+  const merged = { ...latexToUnicode };
+
+  // Merge custom mappings if they exist
+  if (SETTINGS.customMappings && typeof SETTINGS.customMappings === 'object') {
+    Object.assign(merged, SETTINGS.customMappings);
+  }
+
+  return merged;
+}
 
 // =======================
 // ISSUE #12: Error handling wrapper
@@ -375,6 +593,101 @@ function removeLatexCommands(text) {
 }
 
 // =======================
+// ENHANCEMENT #22: Enhanced Error Messages & Validation
+// =======================
+
+function validateLatex(text) {
+  const errors = [];
+
+  // Check for unmatched braces
+  let braceDepth = 0;
+  let lastOpenBrace = -1;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{' && (i === 0 || text[i-1] !== '\\')) {
+      braceDepth++;
+      if (braceDepth === 1) lastOpenBrace = i;
+    } else if (text[i] === '}' && (i === 0 || text[i-1] !== '\\')) {
+      braceDepth--;
+      if (braceDepth < 0) {
+        errors.push({
+          type: 'unmatched_braces',
+          message: `Unmatched closing brace } at position ${i}`,
+          suggestion: 'Check that every } has a matching {'
+        });
+        braceDepth = 0;
+      }
+    }
+  }
+
+  if (braceDepth > 0) {
+    errors.push({
+      type: 'unmatched_braces',
+      message: `Unmatched opening brace { at position ${lastOpenBrace}`,
+      suggestion: 'Check that every { has a matching }'
+    });
+  }
+
+  // Check for unmatched dollar signs
+  const dollarCount = (text.match(/\$/g) || []).length;
+  if (dollarCount % 2 !== 0) {
+    errors.push({
+      type: 'unmatched_delimiters',
+      message: 'Unmatched $ delimiter',
+      suggestion: 'LaTeX equations need matching $ or $$ pairs'
+    });
+  }
+
+  // Find unknown commands (commands not in our dictionary - includes custom mappings)
+  const commandPattern = /\\([a-zA-Z]+)/g;
+  const unknownCommands = [];
+  let match;
+
+  // Get merged dictionary (built-in + custom mappings)
+  const mergedDict = getMergedLatexDictionary();
+
+  while ((match = commandPattern.exec(text)) !== null) {
+    const command = '\\' + match[1];
+
+    // Check if command exists in our dictionaries (including custom)
+    const knownCommand =
+      mergedDict[command] ||
+      ['frac', 'sqrt', 'text', 'mathrm', 'mathbf', 'mathit', 'hat', 'bar', 'vec', 'dot', 'ddot',
+       'tilde', 'left', 'right', 'big', 'Big', 'bigg', 'Bigg', 'begin', 'end',
+       'sin', 'cos', 'tan', 'log', 'ln', 'lim', 'max', 'min'].includes(match[1]);
+
+    if (!knownCommand && !unknownCommands.includes(command)) {
+      unknownCommands.push(command);
+    }
+  }
+
+  if (unknownCommands.length > 0) {
+    errors.push({
+      type: 'unknown_commands',
+      message: `Unknown LaTeX commands: ${unknownCommands.join(', ')}`,
+      suggestion: 'Check spelling or add custom mappings in settings'
+    });
+  }
+
+  return errors;
+}
+
+function showValidationErrors(errors) {
+  if (!errors || errors.length === 0) return;
+
+  const errorMessages = errors.map(e => `• ${e.message}\n  💡 ${e.suggestion}`).join('\n\n');
+
+  const message = `⚠️ LaTeX Validation Issues:\n\n${errorMessages}\n\nOriginal text pasted without conversion.`;
+
+  if (SETTINGS.showNotifications) {
+    showNotification(message, 'warning');
+  }
+
+  if (SETTINGS.enableDebugLogging) {
+    console.warn('[LaTeX Fixer] Validation errors:', errors);
+  }
+}
+
+// =======================
 // ISSUE #3, #4: Smart LaTeX detection and delimiter support
 // =======================
 function hasLatexContent(text) {
@@ -417,10 +730,97 @@ function normalizeDelimiters(text) {
 }
 
 // =======================
-// Main conversion function with ALL fixes
+// ENHANCEMENT #23: Performance Optimization
+// =======================
+
+// Regex cache for better performance
+const regexCache = new Map();
+
+function getCachedRegex(pattern, flags = 'g') {
+  const key = `${pattern}_${flags}`;
+  if (!regexCache.has(key)) {
+    regexCache.set(key, new RegExp(pattern, flags));
+  }
+  return regexCache.get(key);
+}
+
+// Memoization cache for conversions
+const conversionCache = new Map();
+const MAX_CACHE_SIZE = 100;
+
+function getCachedConversion(text) {
+  return conversionCache.get(text);
+}
+
+function cacheConversion(text, result) {
+  if (conversionCache.size >= MAX_CACHE_SIZE) {
+    // Remove oldest entry
+    const firstKey = conversionCache.keys().next().value;
+    conversionCache.delete(firstKey);
+  }
+  conversionCache.set(text, result);
+}
+
+// Clear caches periodically to prevent memory leaks
+setInterval(() => {
+  if (conversionCache.size > 50) {
+    conversionCache.clear();
+    if (SETTINGS.enableDebugLogging) {
+      console.log('[LaTeX Fixer] Cleared conversion cache');
+    }
+  }
+}, 300000); // Every 5 minutes
+
+// Chunked processing for large documents
+async function convertLargeDocument(text) {
+  const CHUNK_SIZE = 5000;
+
+  if (text.length <= CHUNK_SIZE) {
+    return convertLatexToUnicode(text);
+  }
+
+  // Split into chunks at equation boundaries
+  const chunks = [];
+  let currentChunk = '';
+
+  for (let i = 0; i < text.length; i++) {
+    currentChunk += text[i];
+
+    if (currentChunk.length >= CHUNK_SIZE && (text[i] === '\n' || text[i] === ' ')) {
+      chunks.push(currentChunk);
+      currentChunk = '';
+    }
+  }
+
+  if (currentChunk) {
+    chunks.push(currentChunk);
+  }
+
+  // Process chunks with progress
+  let result = '';
+  for (let i = 0; i < chunks.length; i++) {
+    result += convertLatexToUnicode(chunks[i]);
+
+    // Yield to browser to prevent freezing
+    if (i % 5 === 0) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+  }
+
+  return result;
+}
+
+// =======================
+// Main conversion function with ALL fixes + Performance
 // =======================
 function convertLatexToUnicode(text) {
-  return safeExecute(() => {
+  // Check cache first (enhancement #23)
+  const cached = getCachedConversion(text);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const result = safeExecute(() => {
     let converted = text;
 
     // ISSUE #4: Normalize alternative delimiters first
@@ -437,8 +837,9 @@ function convertLatexToUnicode(text) {
       cleaned = processMathFunctions(cleaned);  // ISSUE #6
       cleaned = processScripts(cleaned);        // ISSUE #1, #5
 
-      // Replace LaTeX symbols
-      for (const [latex, unicode] of Object.entries(latexToUnicode)) {
+      // Replace LaTeX symbols (including custom mappings - Enhancement #20)
+      const mergedDict = getMergedLatexDictionary();
+      for (const [latex, unicode] of Object.entries(mergedDict)) {
         const regex = new RegExp(latex.replace(/\\/g, '\\\\'), 'g');
         cleaned = cleaned.replace(regex, unicode);
       }
@@ -459,8 +860,9 @@ function convertLatexToUnicode(text) {
       cleaned = processMathFunctions(cleaned);  // ISSUE #6
       cleaned = processScripts(cleaned);        // ISSUE #1, #5
 
-      // Replace LaTeX symbols
-      for (const [latex, unicode] of Object.entries(latexToUnicode)) {
+      // Replace LaTeX symbols (including custom mappings - Enhancement #20)
+      const mergedDict = getMergedLatexDictionary();
+      for (const [latex, unicode] of Object.entries(mergedDict)) {
         const regex = new RegExp(latex.replace(/\\/g, '\\\\'), 'g');
         cleaned = cleaned.replace(regex, unicode);
       }
@@ -472,6 +874,13 @@ function convertLatexToUnicode(text) {
 
     return converted;
   }, text, 'Conversion error');
+
+  // Cache the result (enhancement #23)
+  if (result) {
+    cacheConversion(text, result);
+  }
+
+  return result;
 }
 
 // =======================
@@ -480,6 +889,152 @@ function convertLatexToUnicode(text) {
 let isProcessing = false;
 let lastConvertedText = '';
 let processingTimeout = null;
+
+// =======================
+// ENHANCEMENT #24: One-Click Undo System
+// =======================
+const conversionHistory = [];
+let undoButton = null;
+let undoButtonTimeout = null;
+
+function trackConversionForUndo(original, converted, selection) {
+  conversionHistory.push({
+    timestamp: Date.now(),
+    original,
+    converted,
+    selection: {
+      start: selection?.anchorOffset || 0,
+      end: selection?.focusOffset || 0
+    }
+  });
+
+  // Keep last 5 conversions
+  if (conversionHistory.length > 5) {
+    conversionHistory.shift();
+  }
+}
+
+async function undoLastConversion() {
+  const last = conversionHistory.pop();
+  if (!last) {
+    if (SETTINGS.showNotifications) {
+      showNotification('⚠️ No conversion to undo', 'warning');
+    }
+    return;
+  }
+
+  // Restore original text
+  const success = await insertText(last.original);
+
+  if (success) {
+    if (SETTINGS.showNotifications) {
+      showNotification('↶ Conversion undone', 'success');
+    }
+  }
+
+  hideUndoButton();
+}
+
+function showUndoButton(duration = 5000) {
+  if (!SETTINGS.showFloatingButton) return;
+
+  // Remove existing button
+  if (undoButton && undoButton.parentNode) {
+    undoButton.remove();
+  }
+
+  undoButton = document.createElement('button');
+  undoButton.id = 'latex-undo-btn';
+  undoButton.innerHTML = '↶ Undo Conversion';
+  undoButton.title = 'Undo last conversion (Ctrl+Shift+Z)';
+
+  undoButton.style.cssText = `
+    position: fixed !important;
+    bottom: 140px !important;
+    right: 20px !important;
+    background: #f44336 !important;
+    color: white !important;
+    border: none !important;
+    padding: 10px 16px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    box-shadow: 0 2px 10px rgba(244, 67, 54, 0.4) !important;
+    z-index: 2147483645 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s !important;
+    animation: slideInFromRight 0.3s ease-out !important;
+    font-family: Arial, sans-serif !important;
+    pointer-events: auto !important;
+  `;
+
+  undoButton.addEventListener('mouseenter', () => {
+    undoButton.style.background = '#d32f2f !important';
+    undoButton.style.transform = 'scale(1.05) !important';
+  });
+
+  undoButton.addEventListener('mouseleave', () => {
+    undoButton.style.background = '#f44336 !important';
+    undoButton.style.transform = 'scale(1) !important';
+  });
+
+  undoButton.addEventListener('click', undoLastConversion);
+
+  document.body.appendChild(undoButton);
+
+  // Auto-hide after duration
+  if (undoButtonTimeout) {
+    clearTimeout(undoButtonTimeout);
+  }
+
+  undoButtonTimeout = setTimeout(hideUndoButton, duration);
+}
+
+function hideUndoButton() {
+  if (undoButton && undoButton.parentNode) {
+    undoButton.style.animation = 'slideOutToRight 0.3s ease-in';
+    setTimeout(() => {
+      if (undoButton && undoButton.parentNode) {
+        undoButton.remove();
+      }
+    }, 300);
+  }
+}
+
+// Keyboard shortcut for undo: Ctrl+Shift+Z
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Z') {
+    e.preventDefault();
+    undoLastConversion();
+  }
+});
+
+// Add CSS animation for undo button
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes slideInFromRight {
+    from {
+      transform: translateX(400px);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideOutToRight {
+    from {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateX(400px);
+      opacity: 0;
+    }
+  }
+`;
+document.head.appendChild(style);
 
 // =======================
 // ISSUE #9: Modern text insertion (replacing execCommand)
@@ -640,12 +1195,13 @@ function showNotification(message, type = 'success') {
 
     targetDoc.body.appendChild(notification);
 
+    const duration = (SETTINGS.notificationDuration || 3) * 1000;
     const timeoutId = setTimeout(() => {
       if (notification.parentNode) {
         notification.style.animation = 'slideIn 0.3s ease-in reverse';
         setTimeout(() => notification.remove(), 300);
       }
-    }, 3000);
+    }, duration);
 
     // Cleanup on page unload
     const cleanup = () => {
@@ -663,9 +1219,16 @@ function showNotification(message, type = 'success') {
 // ISSUE #11, #12, #15: Main paste event handler with all fixes
 // =======================
 document.addEventListener('paste', async function(e) {
+  // ENHANCEMENT #16: Check if auto-convert is enabled
+  if (!SETTINGS.enableAutoConvert) {
+    return; // Auto-convert disabled, don't interfere
+  }
+
   // ISSUE #11: Prevent race conditions
   if (isProcessing) {
-    console.log('[LaTeX Fixer] Already processing, skipping...');
+    if (SETTINGS.enableDebugLogging) {
+      console.log('[LaTeX Fixer] Already processing, skipping...');
+    }
     return;
   }
 
@@ -680,6 +1243,15 @@ document.addEventListener('paste', async function(e) {
     // ISSUE #3: Smart detection
     if (!hasLatexContent(plainText) && !hasLatexContent(htmlData)) {
       return; // No LaTeX content, don't interfere
+    }
+
+    // ENHANCEMENT #22: Validate LaTeX before conversion
+    const textToValidate = plainText || htmlData;
+    const validationErrors = validateLatex(textToValidate);
+    if (validationErrors.length > 0) {
+      showValidationErrors(validationErrors);
+      trackConversion(textToValidate, textToValidate, false);
+      return; // Don't convert if validation fails
     }
 
     // ISSUE #11: Set processing flag
@@ -705,7 +1277,12 @@ document.addEventListener('paste', async function(e) {
 
     // Fall back to plain text conversion
     if (!convertedText) {
-      convertedText = convertLatexToUnicode(plainText);
+      // Use large document handler for big texts (enhancement #23)
+      if (plainText.length > 5000) {
+        convertedText = await convertLargeDocument(plainText);
+      } else {
+        convertedText = convertLatexToUnicode(plainText);
+      }
     }
 
     // Check if anything changed and it's not the same as last conversion
@@ -716,9 +1293,19 @@ document.addEventListener('paste', async function(e) {
 
       if (success) {
         lastConvertedText = convertedText;
-        showNotification('✅ LaTeX equations converted!', 'success');
+        if (SETTINGS.showNotifications) {
+          showNotification('✅ LaTeX equations converted!', 'success');
+        }
+        // Track statistics (enhancement #21)
+        trackConversion(plainText, convertedText, true);
+        // Track for undo (enhancement #24)
+        trackConversionForUndo(plainText, convertedText, window.getSelection());
+        // Show undo button (enhancement #24)
+        showUndoButton();
       } else {
-        showNotification('⚠️ Conversion succeeded but insertion failed', 'error');
+        if (SETTINGS.showNotifications) {
+          showNotification('⚠️ Conversion succeeded but insertion failed', 'error');
+        }
       }
     }
 
@@ -739,6 +1326,11 @@ document.addEventListener('paste', async function(e) {
 // =======================
 function addConversionButton() {
   safeExecute(() => {
+    // ENHANCEMENT #16: Check if floating button is enabled
+    if (!SETTINGS.showFloatingButton) {
+      return;
+    }
+
     // Only add on supported sites
     const supportedSites = ['docs.google.com', 'office.com', 'officeapps.live.com'];
     if (!supportedSites.some(site => window.location.hostname.includes(site))) {
@@ -826,6 +1418,14 @@ function addConversionButton() {
           return;
         }
 
+        // ENHANCEMENT #22: Validate LaTeX before conversion
+        const validationErrors = validateLatex(selectedText);
+        if (validationErrors.length > 0) {
+          showValidationErrors(validationErrors);
+          trackConversion(selectedText, selectedText, false);
+          return;
+        }
+
         const converted = convertLatexToUnicode(selectedText);
 
         if (converted !== selectedText) {
@@ -857,9 +1457,23 @@ function addConversionButton() {
 }
 
 // =======================
-// Initialize extension
+// Initialize extension (Enhanced for #25)
 // =======================
-function initialize() {
+async function initialize() {
+  // ENHANCEMENT #25: Only initialize on actual editor pages
+  if (!isEditorPage()) {
+    console.log('[LaTeX Fixer] Not an editor page, skipping initialization');
+    return;
+  }
+
+  if (isInitialized) {
+    console.log('[LaTeX Fixer] Already initialized, skipping');
+    return;
+  }
+
+  // ENHANCEMENT #16: Load settings first
+  await loadSettings();
+
   safeExecute(() => {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', addConversionButton);
@@ -867,8 +1481,36 @@ function initialize() {
       addConversionButton();
     }
 
-    console.log('[LaTeX Fixer] Extension loaded successfully - All 15 issues fixed!');
+    isInitialized = true;
+
+    console.log('[LaTeX Fixer] Extension loaded successfully - Version 2.1 with all enhancements!');
+    if (SETTINGS.enableDebugLogging) {
+      console.log('[LaTeX Fixer] Settings:', SETTINGS);
+    }
   }, null, 'Initialization error');
 }
 
+// ENHANCEMENT #25: Cleanup on page unload
+addTrackedListener(window, 'beforeunload', cleanup, { once: true });
+
+// ENHANCEMENT #25: Monitor navigation for SPA (Single Page Apps like Google Docs)
+let lastUrl = location.href;
+const navigationObserver = new MutationObserver(() => {
+  const currentUrl = location.href;
+  if (currentUrl !== lastUrl) {
+    lastUrl = currentUrl;
+
+    // URL changed - cleanup and reinitialize if on editor page
+    cleanup();
+
+    if (isEditorPage()) {
+      // Wait a bit for page to stabilize
+      setTimeout(initialize, 500);
+    }
+  }
+});
+
+navigationObserver.observe(document, { subtree: true, childList: true });
+
+// Start initialization
 initialize();

@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>LaTeX Equation Fixer - Settings</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f5f7fa;
+      padding: 20px;
+      color: #2c3e50;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+    }
+
+    header h1 {
+      font-size: 28px;
+      margin-bottom: 5px;
+    }
+
+    header p {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .content {
+      padding: 30px;
+    }
+
+    .section {
+      margin-bottom: 35px;
+    }
+
+    .section:last-child {
+      margin-bottom: 0;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #2c3e50;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e1e8ed;
+      display: flex;
+      align-items: center;
+    }
+
+    .section-title::before {
+      content: '';
+      width: 4px;
+      height: 20px;
+      background: #667eea;
+      margin-right: 10px;
+      border-radius: 2px;
+    }
+
+    .setting-item {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      transition: background 0.2s;
+    }
+
+    .setting-item:hover {
+      background: #f0f2f5;
+    }
+
+    .setting-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .checkbox-container input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      margin-right: 10px;
+      accent-color: #667eea;
+    }
+
+    .setting-label {
+      font-weight: 500;
+      font-size: 15px;
+      color: #2c3e50;
+      cursor: pointer;
+    }
+
+    .setting-description {
+      font-size: 13px;
+      color: #7f8c8d;
+      margin-left: 30px;
+      line-height: 1.5;
+    }
+
+    .input-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+      margin-left: 30px;
+    }
+
+    .input-group label {
+      font-size: 14px;
+      color: #5a6c7d;
+      font-weight: 500;
+    }
+
+    .input-group input[type="number"],
+    .input-group input[type="text"] {
+      padding: 8px 12px;
+      border: 1px solid #dfe6e9;
+      border-radius: 6px;
+      font-size: 14px;
+      width: 100px;
+      transition: border-color 0.2s;
+    }
+
+    .input-group input[type="text"] {
+      width: 300px;
+    }
+
+    .input-group input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      padding: 20px 30px;
+      background: #f8f9fa;
+      border-top: 1px solid #e1e8ed;
+    }
+
+    button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #5568d3;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-secondary {
+      background: #95a5a6;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #7f8c8d;
+    }
+
+    .status-message {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 15px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      opacity: 0;
+      transform: translateX(400px);
+      transition: all 0.3s ease;
+      z-index: 1000;
+    }
+
+    .status-message.show {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .status-message.success {
+      background: #2ecc71;
+      color: white;
+    }
+
+    .status-message.error {
+      background: #e74c3c;
+      color: white;
+    }
+
+    .kbd {
+      display: inline-block;
+      padding: 3px 6px;
+      font-size: 11px;
+      line-height: 1;
+      color: #444;
+      background-color: #f7f7f7;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.2), inset 0 0 0 2px #fff;
+      font-family: 'Courier New', monospace;
+      margin: 0 2px;
+    }
+
+    .custom-mappings-container {
+      margin-top: 15px;
+    }
+
+    .mapping-item {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+
+    .mapping-input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+    }
+
+    .mapping-input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .mapping-arrow {
+      color: #95a5a6;
+      font-weight: bold;
+    }
+
+    .btn-remove {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.2s;
+    }
+
+    .btn-remove:hover {
+      background: #c0392b;
+    }
+
+    .btn-add {
+      background: #27ae60;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background 0.2s;
+      margin-top: 10px;
+    }
+
+    .btn-add:hover {
+      background: #229954;
+    }
+
+    .import-export-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .btn-import, .btn-export {
+      flex: 1;
+      background: #3498db;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.2s;
+    }
+
+    .btn-import:hover, .btn-export:hover {
+      background: #2980b9;
+    }
+
+    .info-box {
+      background: #e3f2fd;
+      border-left: 4px solid #2196F3;
+      padding: 15px;
+      border-radius: 6px;
+      margin-top: 20px;
+      font-size: 13px;
+      color: #1565c0;
+      line-height: 1.6;
+    }
+
+    .sites-list {
+      margin-left: 30px;
+      margin-top: 10px;
+    }
+
+    .site-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .site-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: #667eea;
+    }
+
+    .site-item label {
+      font-size: 14px;
+      color: #2c3e50;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>⚙️ LaTeX Equation Fixer Settings</h1>
+      <p>Customize how the extension works for your workflow</p>
+    </header>
+
+    <div class="content">
+      <!-- General Settings -->
+      <div class="section">
+        <h2 class="section-title">General Settings</h2>
+
+        <div class="setting-item">
+          <div class="setting-header">
+            <label class="checkbox-container">
+              <input type="checkbox" id="enableAutoConvert" checked>
+              <span class="setting-label">Enable auto-conversion on paste</span>
+            </label>
+          </div>
+          <p class="setting-description">
+            Automatically convert LaTeX equations when you paste text into Google Docs or Word Online
+          </p>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-header">
+            <label class="checkbox-container">
+              <input type="checkbox" id="showFloatingButton" checked>
+              <span class="setting-label">Show floating conversion button</span>
+            </label>
+          </div>
+          <p class="setting-description">
+            Display a floating button when you select text containing LaTeX equations
+          </p>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-header">
+            <label class="checkbox-container">
+              <input type="checkbox" id="showNotifications" checked>
+              <span class="setting-label">Show notifications</span>
+            </label>
+          </div>
+          <p class="setting-description">
+            Display notifications when conversions succeed or fail
+          </p>
+          <div class="input-group">
+            <label for="notificationDuration">Notification duration:</label>
+            <input type="number" id="notificationDuration" min="1" max="10" value="3">
+            <span>seconds</span>
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-header">
+            <label class="checkbox-container">
+              <input type="checkbox" id="enableDebugLogging">
+              <span class="setting-label">Enable debug logging</span>
+            </label>
+          </div>
+          <p class="setting-description">
+            Log detailed conversion information to browser console (for troubleshooting)
+          </p>
+        </div>
+      </div>
+
+      <!-- Site Settings -->
+      <div class="section">
+        <h2 class="section-title">Active Sites</h2>
+
+        <div class="setting-item">
+          <p class="setting-description" style="margin-left: 0; margin-bottom: 15px;">
+            Choose which websites the extension should run on
+          </p>
+          <div class="sites-list">
+            <div class="site-item">
+              <input type="checkbox" id="siteGoogleDocs" checked>
+              <label for="siteGoogleDocs">Google Docs (docs.google.com)</label>
+            </div>
+            <div class="site-item">
+              <input type="checkbox" id="siteMicrosoftWord" checked>
+              <label for="siteMicrosoftWord">Microsoft Word Online (office.com)</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conversion Settings -->
+      <div class="section">
+        <h2 class="section-title">Conversion Settings</h2>
+
+        <div class="setting-item">
+          <div class="setting-header">
+            <label class="checkbox-container">
+              <input type="checkbox" id="convertInlineMath" checked>
+              <span class="setting-label">Convert inline math ($...$)</span>
+            </label>
+          </div>
+          <p class="setting-description">
+            Convert equations enclosed in single dollar signs: $x^2 + y^2 = r^2$
+          </p>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-header">
+            <label class="checkbox-container">
+              <input type="checkbox" id="convertDisplayMath" checked>
+              <span class="setting-label">Convert display math ($$...$$)</span>
+            </label>
+          </div>
+          <p class="setting-description">
+            Convert equations enclosed in double dollar signs: $$E = mc^2$$
+          </p>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-header">
+            <label class="checkbox-container">
+              <input type="checkbox" id="convertAlternativeDelimiters" checked>
+              <span class="setting-label">Convert alternative delimiters</span>
+            </label>
+          </div>
+          <p class="setting-description">
+            Convert \(...\), \[...\], \begin{equation}, and other LaTeX delimiters
+          </p>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-header">
+            <label class="checkbox-container">
+              <input type="checkbox" id="smartDetection" checked>
+              <span class="setting-label">Smart detection (prevent false positives)</span>
+            </label>
+          </div>
+          <p class="setting-description">
+            Only convert text that contains actual LaTeX commands (prevents converting "$50" as math)
+          </p>
+        </div>
+      </div>
+
+      <!-- Custom LaTeX Mappings (Enhancement #20) -->
+      <div class="section">
+        <h2 class="section-title">🔧 Custom LaTeX Mappings</h2>
+
+        <div class="setting-item">
+          <p class="setting-description">
+            Add your own LaTeX commands and their Unicode/text replacements.
+            Perfect for specialized notation, custom macros, or field-specific symbols.
+          </p>
+
+          <div class="custom-mappings-container" id="customMappingsContainer">
+            <!-- Mapping items will be dynamically added here -->
+          </div>
+
+          <button class="btn-add" id="addMappingBtn">+ Add Custom Mapping</button>
+
+          <div class="import-export-group">
+            <button class="btn-import" id="importMappingsBtn">📥 Import Mappings</button>
+            <button class="btn-export" id="exportMappingsBtn">📤 Export Mappings</button>
+          </div>
+
+          <input type="file" id="importFileInput" accept=".json" style="display: none;">
+
+          <div class="info-box" style="margin-top: 15px;">
+            <strong>Examples:</strong><br>
+            • <code>\R</code> → <code>ℝ</code> (Real numbers)<br>
+            • <code>\myname</code> → <code>Your Name</code> (Custom text)<br>
+            • <code>\checkmark</code> → <code>✓</code> (Checkmark symbol)
+          </div>
+        </div>
+      </div>
+
+      <!-- Advanced Settings -->
+      <div class="section">
+        <h2 class="section-title">Advanced</h2>
+
+        <div class="setting-item">
+          <div class="setting-header">
+            <span class="setting-label">Keyboard shortcut</span>
+          </div>
+          <p class="setting-description">
+            Press <span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">L</span> to convert selected LaTeX text
+          </p>
+          <div class="info-box">
+            ℹ️ Keyboard shortcuts can be customized in Chrome's extension shortcuts page:
+            <strong>chrome://extensions/shortcuts</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="button-group">
+      <button class="btn-primary" id="saveBtn">💾 Save Settings</button>
+      <button class="btn-secondary" id="resetBtn">🔄 Reset to Defaults</button>
+    </div>
+  </div>
+
+  <div class="status-message" id="statusMessage"></div>
+
+  <script src="options.js"></script>
+</body>
+</html>
