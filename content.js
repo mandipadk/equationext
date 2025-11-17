@@ -150,7 +150,7 @@ function safeExecute(fn, fallback, errorMsg) {
 // ISSUE #2: Proper brace matching
 // =======================
 function findMatchingBrace(text, startIndex) {
-  let depth = 0;
+  let depth = 1;  // We're already inside one level of braces
   for (let i = startIndex; i < text.length; i++) {
     if (text[i] === '{') depth++;
     else if (text[i] === '}') {
@@ -351,25 +351,80 @@ function processScripts(text) {
 }
 
 // =======================
+// Helper: Escape regex special characters
+// =======================
+function escapeRegex(str) {
+  // Escape special regex characters: \ ^ $ . * + ? ( ) [ ] { } |
+  return str.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+}
+
+// =======================
 // ISSUE #10: Remove sizing and positioning commands
 // =======================
 function removeLatexCommands(text) {
   let result = text;
 
+  // FIRST: Replace escaped underscores with a placeholder to preserve them
+  const UNDERSCORE_PLACEHOLDER = '\u{E000}';  // Private Use Area character
+  result = result.replace(/\\_/g, UNDERSCORE_PLACEHOLDER);
+
   // Remove \left, \right, \big, \Big, \bigg, \Bigg
   result = result.replace(/\\(left|right|big|Big|bigg|Bigg)\s*/g, '');
 
-  // Remove \text{} but keep content
-  result = result.replace(/\\text\{([^}]+)\}/g, '$1');
+  // Remove \text{} but keep content (handle nested braces properly)
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const textIndex = result.indexOf('\\text{');
+    if (textIndex !== -1) {
+      const content = extractBraceContent(result, textIndex + '\\text'.length);
+      if (content) {
+        result = result.substring(0, textIndex) + content.content + result.substring(content.end);
+        changed = true;
+      } else {
+        break;  // Avoid infinite loop
+      }
+    }
+  }
 
-  // Remove \mathrm{}, \mathbf{}, etc but keep content
-  result = result.replace(/\\math(rm|bf|it|sf|tt|cal|bb|frak)\{([^}]+)\}/g, '$2');
+  // Remove \mathrm{}, \mathbf{}, etc but keep content (handle nested braces properly)
+  const mathCommands = ['mathrm', 'mathbf', 'mathit', 'mathsf', 'mathtt', 'mathcal', 'mathbb', 'mathfrak'];
+  for (const cmd of mathCommands) {
+    changed = true;
+    while (changed) {
+      changed = false;
+      const cmdIndex = result.indexOf('\\' + cmd + '{');
+      if (cmdIndex !== -1) {
+        const content = extractBraceContent(result, cmdIndex + cmd.length + 1);
+        if (content) {
+          result = result.substring(0, cmdIndex) + content.content + result.substring(content.end);
+          changed = true;
+        }
+      }
+    }
+  }
 
   // Remove spacing commands
   result = result.replace(/\\(,|;|:|\s|quad|qquad)/g, ' ');
 
+  // DON'T remove backslashes yet - we need them for symbol replacement!
+  // This will be done in finalCleanup() after symbol replacement
+
+  return result;
+}
+
+// =======================
+// Final cleanup after all conversions
+// =======================
+function finalCleanup(text) {
+  let result = text;
+
   // Remove remaining single backslashes before non-command characters
   result = result.replace(/\\([^a-zA-Z])/g, '$1');
+
+  // Restore escaped underscores
+  const UNDERSCORE_PLACEHOLDER = '\u{E000}';
+  result = result.replace(new RegExp(UNDERSCORE_PLACEHOLDER, 'g'), '_');
 
   return result;
 }
@@ -430,20 +485,24 @@ function convertLatexToUnicode(text) {
     converted = converted.replace(/\$\$([^$]+)\$\$/g, (match, equation) => {
       let cleaned = equation.trim();
 
-      // Apply all transformations in order
-      cleaned = processFrac(cleaned);           // ISSUE #2, #6
-      cleaned = processSqrt(cleaned);           // ISSUE #6
-      cleaned = processAccents(cleaned);        // ISSUE #8
-      cleaned = processMathFunctions(cleaned);  // ISSUE #6
-      cleaned = processScripts(cleaned);        // ISSUE #1, #5
+      // CRITICAL: Remove \text{} and other commands FIRST
+      cleaned = removeLatexCommands(cleaned);
 
-      // Replace LaTeX symbols
+      // Apply all transformations in order
+      cleaned = processFrac(cleaned);
+      cleaned = processSqrt(cleaned);
+      cleaned = processAccents(cleaned);
+      cleaned = processMathFunctions(cleaned);
+
+      // CRITICAL: Replace LaTeX symbols BEFORE processing scripts
+      // This ensures symbols like \| are replaced before backslashes are removed
       for (const [latex, unicode] of Object.entries(latexToUnicode)) {
-        const regex = new RegExp(latex.replace(/\\/g, '\\\\'), 'g');
+        const regex = new RegExp(escapeRegex(latex), 'g');
         cleaned = cleaned.replace(regex, unicode);
       }
 
-      cleaned = removeLatexCommands(cleaned);   // ISSUE #10
+      cleaned = processScripts(cleaned);
+      cleaned = finalCleanup(cleaned);  // Remove backslashes and restore underscores
 
       return '\n' + cleaned + '\n';
     });
@@ -452,20 +511,24 @@ function convertLatexToUnicode(text) {
     converted = converted.replace(/\$([^$]+)\$/g, (match, equation) => {
       let cleaned = equation.trim();
 
-      // Apply all transformations in order
-      cleaned = processFrac(cleaned);           // ISSUE #2, #6
-      cleaned = processSqrt(cleaned);           // ISSUE #6
-      cleaned = processAccents(cleaned);        // ISSUE #8
-      cleaned = processMathFunctions(cleaned);  // ISSUE #6
-      cleaned = processScripts(cleaned);        // ISSUE #1, #5
+      // CRITICAL: Remove \text{} and other commands FIRST
+      cleaned = removeLatexCommands(cleaned);
 
-      // Replace LaTeX symbols
+      // Apply all transformations in order
+      cleaned = processFrac(cleaned);
+      cleaned = processSqrt(cleaned);
+      cleaned = processAccents(cleaned);
+      cleaned = processMathFunctions(cleaned);
+
+      // CRITICAL: Replace LaTeX symbols BEFORE processing scripts
+      // This ensures symbols like \| are replaced before backslashes are removed
       for (const [latex, unicode] of Object.entries(latexToUnicode)) {
-        const regex = new RegExp(latex.replace(/\\/g, '\\\\'), 'g');
+        const regex = new RegExp(escapeRegex(latex), 'g');
         cleaned = cleaned.replace(regex, unicode);
       }
 
-      cleaned = removeLatexCommands(cleaned);   // ISSUE #10
+      cleaned = processScripts(cleaned);
+      cleaned = finalCleanup(cleaned);  // Remove backslashes and restore underscores
 
       return cleaned;
     });
