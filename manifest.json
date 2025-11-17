@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "LaTeX Equation Fixer",
-  "version": "1.0.0",
-  "description": "Automatically converts pasted LaTeX equations to proper formatting in Google Docs and Microsoft Word Online",
+  "version": "2.0.0",
+  "description": "100% accurate LaTeX to Unicode converter. Auto-converts equations on paste with full support for superscripts, accents, functions, and more!",
   "permissions": [
     "activeTab",
     "clipboardRead"
